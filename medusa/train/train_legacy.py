@@ -350,7 +350,7 @@ def train():
     print(tokenizer.apply_chat_template([{"role": "user", "content": "This is a test"}]))
 
     # Load model and tokenizer
-    model = transformers.AutoModelForCausalLM.from_pretrained(
+    model = transformers.LlamaForCausalLM.from_pretrained(
         model_args.model_name_or_path,
         config=config,
         cache_dir=training_args.cache_dir,

@@ -5,18 +5,25 @@ from typing_extensions import Annotated
 import httpx
 import tqdm
 import asyncio
+import os
 
 app = typer.Typer()
 
 
 client = httpx.AsyncClient(timeout=None)
 
+save_batch_size = 100
+
+
 async def run(conv: Conversation, url: str):
-    payload = {"model":"tgi", "messages": conv.messages}
+    payload = {"model":"/models/Meta-Llama-3-8B-Instruct/", "messages": conv.messages}
+    #print('payload:', payload)
+    #print('request:', conv.messages)
     response = await client.post(url, json=payload)
     content = response.json()
     message = content["choices"][0]["message"]
-    message.pop("name", None)
+    message.pop("tool_calls", None)
+    #print('reply:', message)
     conv.add_message(message)
 
 
@@ -61,15 +68,27 @@ def main(
             input_data = json.loads(f.read())
         conversations = [fix_source(source["conversations"]) for source in input_data]
 
-        futures = []
-        for conversation in conversations:
-            future = recreate_conversation(conversation, sem, url)
-            futures.append(future)
+        backup_output_filename = output_filename + ".bak"
 
-        recreated_conversations = await tqdm.asyncio.tqdm.gather(*futures)
+        recreated_conversations = []
+        for i in tqdm.tqdm(range(0, len(conversations), save_batch_size), position=2):
+            batch_conversations = conversations[i:i+save_batch_size]
 
-        with open(output_filename, "w") as f:
-            json.dump(recreated_conversations, f, indent=4)
+            futures = []
+            for conversation in batch_conversations:
+                future = recreate_conversation(conversation, sem, url)
+                futures.append(future)
+
+            recreated_conversations_batch = await tqdm.asyncio.tqdm.gather(*futures)
+            recreated_conversations += recreated_conversations_batch
+
+            if os.path.exists(output_filename):
+                if os.path.exists(backup_output_filename):
+                    os.remove(backup_output_filename)
+                os.rename(output_filename, backup_output_filename)
+
+            with open(output_filename, "w") as f:
+                json.dump(recreated_conversations, f, indent=4)
     asyncio.run(_main())
 
 
