@@ -71,7 +71,7 @@ def main(
         backup_output_filename = output_filename + ".bak"
 
         recreated_conversations = []
-        for i in tqdm.tqdm(range(0, len(conversations), save_batch_size), position=2):
+        for i in tqdm.tqdm(range(0, len(conversations), save_batch_size), position=1):
             batch_conversations = conversations[i:i+save_batch_size]
 
             futures = []
@@ -79,7 +79,7 @@ def main(
                 future = recreate_conversation(conversation, sem, url)
                 futures.append(future)
 
-            recreated_conversations_batch = await tqdm.asyncio.tqdm.gather(*futures)
+            recreated_conversations_batch = await tqdm.asyncio.tqdm.gather(*futures, leave=False, position=2)
             recreated_conversations += recreated_conversations_batch
 
             if os.path.exists(output_filename):
