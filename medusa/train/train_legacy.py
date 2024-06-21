@@ -20,21 +20,21 @@ from dataclasses import dataclass, field
 import json
 import math
 import pathlib
-from typing import Dict, Optional, Sequence
+from typing import Dict, Optional
 
-import numpy as np
+#import numpy as np
 import torch
-from torch import nn
+#from torch import nn
 from torch.utils.data import Dataset
 import transformers
-from transformers import Trainer, BitsAndBytesConfig
+from transformers import Trainer
 from transformers.trainer_pt_utils import LabelSmoother
 from safetensors.torch import save_file
 
-from fastchat.conversation import SeparatorStyle
-from fastchat.model.model_adapter import get_conversation_template
+#from fastchat.conversation import SeparatorStyle
+#from fastchat.model.model_adapter import get_conversation_template
 from torch.nn import CrossEntropyLoss
-from torch.nn import functional as F
+#from torch.nn import functional as F
 import os
 from medusa.model.medusa_model_legacy import MedusaModel, MedusaConfig
 
@@ -371,6 +371,9 @@ def train():
 
     # Format output dir
     training_args.output_dir = f"{training_args.output_dir}_medusa_mlp_{model_args.model_name_or_path.split('/')[-1]}_medusa_{training_args.medusa_num_heads}_lr_{training_args.learning_rate}_layers_{training_args.medusa_num_layers}"
+
+    training_args.report_to = "tensorboard"
+    training_args.logging_dir = training_args.output_dir
 
 
     # Load data
