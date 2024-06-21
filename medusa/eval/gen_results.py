@@ -27,7 +27,7 @@ def explore_graph(accuracies, max_depth, max_child, num_iterations):
         # find neighbors
         neighbors = []
         for node in accept_nodes:
-            if node[-1] < max_child[len(node) - 1] - 1:
+            if len(node) > 0 and node[-1] < max_child[len(node) - 1] - 1:
                 neighbor = list(copy.deepcopy(node))
                 neighbor[-1] = neighbor[-1] + 1
                 neighbors.append(neighbor)
@@ -50,7 +50,7 @@ def explore_graph(accuracies, max_depth, max_child, num_iterations):
             if neighbor_expectation > best_neighbor_expectation:
                 best_neighbor = neighbor
                 best_neighbor_expectation = neighbor_expectation
-        accept_nodes.append(tuple(best_neighbor))
+        accept_nodes.append(tuple(best_neighbor or []))
         expectations += best_neighbor_expectation
         
     return accept_nodes
