@@ -374,6 +374,8 @@ def train():
 
     training_args.report_to = "tensorboard"
     training_args.logging_dir = training_args.output_dir
+    training_args.logging_strategy = "steps"
+    training_args.save_steps = 200
 
 
     # Load data
