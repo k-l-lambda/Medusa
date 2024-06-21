@@ -3,7 +3,7 @@ import torch
 import json
 #from contextlib import contextmanager
 #import numpy as np
-from medusa.model.medusa_model import MedusaModel
+from medusa.model.medusa_model import MedusaModel, MedusaConfig
 from medusa.model.kv_cache import *
 from medusa.model.utils import *
 from medusa.model.medusa_choices import *
@@ -35,6 +35,8 @@ def main(args):
     tokenizer = model.get_tokenizer()
 
 
+    config = MedusaConfig.from_pretrained(args.model_path)
+
     data = json.load(open(args.data_path))
     past_key_values, past_key_values_data, current_length_data = initialize_past_key_values(model.base_model)
     model.past_key_values = past_key_values
@@ -43,7 +45,7 @@ def main(args):
     results = None
 
     for sample in tqdm((data)):
-        conv = get_conversation_template("vicuna")
+        conv = get_conversation_template(config.base_model_name_or_path)
         conv.messages = []
         conv.append_message(conv.roles[0], sample["instruction"])
         conv.append_message(conv.roles[1], "")
