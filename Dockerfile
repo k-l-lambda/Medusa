@@ -15,9 +15,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy the Medusa repository
 COPY . .
 
+RUN mkdir /work
+RUN cd /work && git clone https://github.com/lm-sys/FastChat.git
+RUN cd /work/FastChat && pip3 install -e. ".[model_worker,webui]"
+
 # Install Medusa in editable mode
 RUN pip install -e '.[train]'
-RUN pip install transformers==4.34.0 deepspeed fschat accelerate sentencepiece numpy==1.26.4 matplotlib pygraphviz
+RUN pip install deepspeed fschat accelerate sentencepiece numpy==1.26.4 matplotlib pygraphviz tensorboardX
 #RUN fschat@git+https://github.com/lm-sys/FastChat.git
 
 # Set the environment variables
