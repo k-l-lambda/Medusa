@@ -17,7 +17,8 @@ COPY . .
 
 # Install Medusa in editable mode
 RUN pip install -e '.[train]'
-RUN pip install transformers==4.34.0 deepspeed fschat accelerate sentencepiece numpy==1.26.4
+RUN pip install transformers==4.34.0 deepspeed fschat accelerate sentencepiece numpy==1.26.4 matplotlib pygraphviz
+#RUN fschat@git+https://github.com/lm-sys/FastChat.git
 
 # Set the environment variables
 ENV PYTHONUNBUFFERED=1 \
