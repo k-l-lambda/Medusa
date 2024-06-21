@@ -126,6 +126,7 @@ class MedusaModelABC(nn.Module):
     def from_pretrained(
         cls,
         pretrained_model_name_or_path,
+        medusa_num_heads=5,
         *args,
         **kwargs,
     ):
@@ -141,7 +142,8 @@ class MedusaModelABC(nn.Module):
         except:
             config = MedusaConfig.from_pretrained(pretrained_model_name_or_path)
             base_model_config = AutoConfig.from_pretrained(config.base_model_name_or_path)
-            base_model_config.medusa_num_heads = 5 # TODO: fix the uploaded config (only include 2 heads)
+            #base_model_config.medusa_num_heads = 5 # TODO: fix the uploaded config (only include 2 heads)
+            base_model_config.medusa_num_heads = medusa_num_heads
             base_model_config.medusa_num_layers = config.medusa_num_layers
             model = super().from_pretrained(
                 config.base_model_name_or_path,
