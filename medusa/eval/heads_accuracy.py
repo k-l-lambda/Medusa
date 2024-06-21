@@ -1,15 +1,15 @@
 import os
 import torch
 import json
-from contextlib import contextmanager
-import numpy as np
+#from contextlib import contextmanager
+#import numpy as np
 from medusa.model.medusa_model import MedusaModel
 from medusa.model.kv_cache import *
 from medusa.model.utils import *
 from medusa.model.medusa_choices import *
 from copy import deepcopy
-import matplotlib.pyplot as plt
-import torch.nn.functional as F
+#import matplotlib.pyplot as plt
+#import torch.nn.functional as F
 from fastchat.model.model_adapter import get_conversation_template
 from tqdm import tqdm
 import argparse
