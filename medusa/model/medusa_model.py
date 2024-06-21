@@ -233,6 +233,8 @@ class MedusaModelABC(nn.Module):
                 return vicuna_33b_stage2
         elif 'zephyr' in model_name:
             return zephyr_stage2
+        else:
+            return llama3_8b
         warnings.warn('Please specify medusa choice configuration!')
         return mc_sim_7b_63
 
