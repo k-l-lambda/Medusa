@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from safetensors.torch import load_file
 from .modeling_llama_kv import LlamaForCausalLM as KVLlamaForCausalLM
 from .modeling_mistral_kv import MistralForCausalLM as KVMistralForCausalLM
 # import transformers
@@ -148,12 +149,13 @@ class MedusaModelABC(nn.Module):
                 **kwargs,
                 config=base_model_config,
             )
-            medusa_head_path = os.path.join(pretrained_model_name_or_path, "medusa_lm_head.pt")
-            if os.path.exists(medusa_head_path):
-                filename = medusa_head_path
-            else:
-                filename = hf_hub_download(pretrained_model_name_or_path, "medusa_lm_head.pt")
-            medusa_head_state_dict = torch.load(filename, map_location=model.device)
+            medusa_head_path = os.path.join(pretrained_model_name_or_path, "medusa_lm_head.safetensors")
+            #if os.path.exists(medusa_head_path):
+            #    filename = medusa_head_path
+            #else:
+            #    filename = hf_hub_download(pretrained_model_name_or_path, "medusa_lm_head.pt")
+            #medusa_head_state_dict = torch.load(filename, map_location=model.device)
+            medusa_head_state_dict = load_file(medusa_head_path)
             model.medusa_head.load_state_dict(medusa_head_state_dict, strict=False)
             return model
         
