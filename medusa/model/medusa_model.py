@@ -368,7 +368,9 @@ class MedusaModelABC(nn.Module):
                     skip_special_tokens=True,
                     spaces_between_special_tokens=False,
                     clean_up_tokenization_spaces=True,
-                )
+                ),
+                "new_token": new_token.cpu().item(),
+                "accept_length": accept_length.cpu().item(),
             }
 
             if self.tokenizer.eos_token_id in input_ids[0, input_len:]:
