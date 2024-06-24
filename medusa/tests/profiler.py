@@ -6,6 +6,7 @@ import numpy as np
 import time
 
 from medusa.model.medusa_model import MedusaModel
+from medusa.model.utils import reset_medusa_mode
 from medusa.model.kv_cache import initialize_past_key_values
 
 
@@ -17,6 +18,8 @@ def main (args):
 		low_cpu_mem_usage=True,
 		device_map='auto',
 	)
+
+	model.eval()
 
 	tokenizer = model.get_tokenizer()
 	conv = get_conversation_template(args.model)
@@ -33,37 +36,49 @@ def main (args):
 	t0 = time.time()
 
 	if args.original_infer:
-		input_len = input_ids.shape[1]
+		with torch.inference_mode():
+			input_len = input_ids.shape[1]
 
-		(
-			past_key_values,
-			past_key_values_data,
-			current_length_data,
-		) = initialize_past_key_values(model.base_model)
+			(
+				past_key_values,
+				past_key_values_data,
+				current_length_data,
+			) = initialize_past_key_values(model.base_model)
+			model.past_key_values = past_key_values
+			model.past_key_values_data = past_key_values_data
+			model.current_length_data = current_length_data
 
-		accepts.append(0)
-
-		logits = model(
-			input_ids, past_key_values=past_key_values, output_orig=True, medusa_forward=False
-		).logits
-
-		t1 = time.time()
-
-		while True:
-			new_id = torch.argmax(logits[:, -1])[None, None]
-			new_id_value = new_id.item()
-			print(f'{new_id_value=},	{len(accepts)}	mem:{torch.cuda.memory_allocated(0):,}')
-
-			if new_id_value == model.tokenizer.eos_token_id:
-				output = model.tokenizer.decode(input_ids[0, input_len:], skip_special_tokens=True, spaces_between_special_tokens=False, clean_up_tokenization_spaces=True)
-				break
-
-			input_ids = torch.cat([input_ids, new_id], dim=-1)
+			reset_medusa_mode(model)
 
 			accepts.append(0)
+
 			logits = model(
-				new_id, past_key_values=past_key_values, output_orig=True, medusa_forward=False
+				input_ids, past_key_values=model.past_key_values, output_orig=True, medusa_forward=False
 			).logits
+
+			t1 = time.time()
+
+			while True:
+				new_id = torch.argmax(logits[:, -1])[None, None]
+				new_id_value = new_id.item()
+				print(f'{new_id_value=},	{len(accepts)}	mem:{torch.cuda.memory_allocated(0):,}')
+
+				if new_id_value == model.tokenizer.eos_token_id:
+					output = model.tokenizer.decode(input_ids[0, input_len:], skip_special_tokens=True, spaces_between_special_tokens=False, clean_up_tokenization_spaces=True)
+					break
+
+				input_ids = torch.cat([input_ids, new_id], dim=-1)
+
+				accepts.append(0)
+				logits = model(
+					new_id,
+					past_key_values=model.past_key_values,
+					output_orig=True,
+					medusa_forward=False,
+					position_ids=None,
+					output_attentions=False,
+					use_cache=False,
+				).logits
 	else:
 		gen = model.medusa_generate(
 			input_ids,
