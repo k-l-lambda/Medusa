@@ -3,6 +3,7 @@ import torch.nn as nn
 from safetensors.torch import load_file
 from .modeling_llama_kv import LlamaForCausalLM as KVLlamaForCausalLM
 from .modeling_mistral_kv import MistralForCausalLM as KVMistralForCausalLM
+import time
 # import transformers
 
 # # monkey patch
@@ -317,6 +318,8 @@ class MedusaModelABC(nn.Module):
         new_token = 0
         last_round_token = 0
 
+        t1 = time.time()
+
         for idx in range(max_steps):
             # Generate candidates with topk predictions from Medusa heads
             candidates, tree_candidates = generate_candidates(
@@ -371,6 +374,7 @@ class MedusaModelABC(nn.Module):
                 ),
                 "new_token": new_token.cpu().item(),
                 "accept_length": accept_length.cpu().item(),
+                "t1": t1,
             }
 
             if self.tokenizer.eos_token_id in input_ids[0, input_len:]:
