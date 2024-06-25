@@ -372,7 +372,7 @@ def train():
     # Format output dir
     training_args.output_dir = f"{training_args.output_dir}_medusa_mlp_{model_args.model_name_or_path.split('/')[-1]}_medusa_{training_args.medusa_num_heads}_lr_{training_args.learning_rate}_layers_{training_args.medusa_num_layers}"
 
-    training_args.report_to = "tensorboard"
+    #training_args.report_to = "tensorboard"
     training_args.logging_dir = training_args.output_dir
     training_args.logging_strategy = "steps"
     training_args.save_steps = 200
