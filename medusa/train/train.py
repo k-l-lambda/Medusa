@@ -29,7 +29,7 @@ from torch.utils.data import Dataset
 import transformers
 from transformers import Trainer
 from transformers.trainer_pt_utils import LabelSmoother
-from safetensors.torch import save_file
+from safetensors.torch import save_file, load_file
 
 #from fastchat.conversation import SeparatorStyle
 #from fastchat.model.model_adapter import get_conversation_template
@@ -346,16 +346,16 @@ def train():
     tokenizer.pad_token = tokenizer.eos_token
 
     # Making sure the tokenizer works before loading the model.
-    print(tokenizer(["This is a test", "secondary"], padding=True))
-    print(tokenizer.apply_chat_template([{"role": "user", "content": "This is a test"}]))
+    #print(tokenizer(["This is a test", "secondary"], padding=True))
+    #print(tokenizer.apply_chat_template([{"role": "user", "content": "This is a test"}]))
 
-    # Load base model and tokenizer
-    base_model = transformers.LlamaForCausalLM.from_pretrained(
-        model_args.model_name_or_path,
-        config=config,
-        cache_dir=training_args.cache_dir,
-        torch_dtype=torch.bfloat16,
-    )
+    ## Load base model and tokenizer
+    #base_model = transformers.LlamaForCausalLM.from_pretrained(
+    #    model_args.model_name_or_path,
+    #    config=config,
+    #    cache_dir=training_args.cache_dir,
+    #    torch_dtype=torch.bfloat16,
+    #)
 
     # Generate Medusa config
     medusa_config = MedusaConfig(
@@ -367,7 +367,11 @@ def train():
 
     # Add Medusa heads
     model = MedusaModelLlama(medusa_config)
-    model.load_state_dict(base_model.state_dict(), strict=False)
+    #model.load_state_dict(base_model.state_dict(), strict=False)
+    # TODO: this load llama3-8B checkpoints, refine this
+    for i in range(4):
+        state = load_file(os.path.join(model_args.model_name_or_path, f'model-0000{i + 1}-of-00004.safetensors'))
+        model.load_state_dict(state, strict=False)
 
     # Freeze the base model
     for param in model.parameters():
