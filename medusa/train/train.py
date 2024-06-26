@@ -36,7 +36,7 @@ from safetensors.torch import save_file
 from torch.nn import CrossEntropyLoss
 #from torch.nn import functional as F
 import os
-from medusa.model.medusa_model import MedusaModel, MedusaConfig
+from medusa.model.medusa_model import MedusaModelLlama, MedusaConfig
 
 IGNORE_TOKEN_ID = LabelSmoother.ignore_index
 
@@ -366,7 +366,7 @@ def train():
     )
 
     # Add Medusa heads
-    model = MedusaModel.from_pretrained(medusa_config)
+    model = MedusaModelLlama(medusa_config)
     model.load_state_dict(base_model.state_dict(), strict=False)
 
     # Freeze the base model
