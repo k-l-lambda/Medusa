@@ -159,6 +159,8 @@ def main (args):
 	tps_medusa = result_medusa['n_tokens'] / result_medusa['duration']
 	tps_wo = result_wo['n_tokens'] / result_wo['duration']
 
+	n_query = len(queries)
+
 	print('------------------------')
 	print(result_medusa['output'])
 	print('------------------------')
@@ -168,7 +170,7 @@ def main (args):
 
 	print('ttft:', result_medusa['ttft'], ':', result_wo['ttft'])
 	print('tps:', tps_medusa / tps_wo, '=', tps_medusa, ':', tps_wo)
-	print('mem:', f'{result_medusa["mem"] - result_wo["mem"]:,}	= {result_medusa["mem"]:,} - {result_wo["mem"]:,}')
+	print('mem:', f'{(result_medusa["mem"] - result_wo["mem"]) // n_query:,}	= ({result_medusa["mem"]:,} - {result_wo["mem"]:,}) / {n_query}')
 	print('mean accept_length:', np.mean(result_medusa['accepts']))
 
 
