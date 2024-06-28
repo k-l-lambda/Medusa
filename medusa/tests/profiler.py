@@ -11,6 +11,98 @@ from medusa.model.kv_cache import initialize_past_key_values
 
 
 
+def runMedusa (model, input_ids, temperature, max_steps):
+	output = ''
+	accepts = []
+
+	t0 = time.time()
+
+	gen = model.medusa_generate(
+		input_ids,
+		temperature=temperature,
+		max_steps=max_steps,
+	)
+
+	for batch in gen:
+		output = batch['text']
+		t1 = batch["t1"]
+		new_token = batch['new_token']
+		accept_length = batch['accept_length']
+		accepts.append(accept_length)
+
+		print(f'{accept_length}/{new_token},	mem:{torch.cuda.memory_allocated(0):,}')
+
+	t_end = time.time()
+
+	return dict(
+		output=output,
+		accepts=np.sum(accepts),
+		ttft=t1 - t0,
+		duration=t_end - t1,
+		n_tokens=np.sum(accepts) + len(accepts),
+	)
+
+
+def runWO (model, input_ids, max_steps):
+	output = ''
+
+	t0 = time.time()
+
+	with torch.inference_mode():
+		input_len = input_ids.shape[1]
+
+		(
+			past_key_values,
+			past_key_values_data,
+			current_length_data,
+		) = initialize_past_key_values(model.base_model)
+		model.past_key_values = past_key_values
+		model.past_key_values_data = past_key_values_data
+		model.current_length_data = current_length_data
+
+		reset_medusa_mode(model)
+
+		n_tokens = 0
+
+		logits = model(
+			input_ids, past_key_values=model.past_key_values, output_orig=True, medusa_forward=False
+		).logits
+
+		t1 = time.time()
+
+		while True:
+			new_id = torch.argmax(logits[:, -1])[None, None]
+			new_id_value = new_id.item()
+			print(f'{new_id_value=},	{n_tokens}	mem:{torch.cuda.memory_allocated(0):,}')
+
+			if new_id_value == model.tokenizer.eos_token_id or n_tokens >= max_steps:
+				output = model.tokenizer.decode(input_ids[0, input_len:], skip_special_tokens=True, spaces_between_special_tokens=False, clean_up_tokenization_spaces=True)
+				break
+
+			input_ids = torch.cat([input_ids, new_id], dim=-1)
+
+			n_tokens += 1
+			logits = model(
+				new_id,
+				past_key_values=model.past_key_values,
+				output_orig=True,
+				medusa_forward=False,
+				position_ids=None,
+				output_attentions=False,
+				use_cache=False,
+			).logits
+
+	t_end = time.time()
+
+	return dict(
+		output=output,
+		accepts=0,
+		ttft=t1 - t0,
+		duration=t_end - t1,
+		n_tokens=n_tokens,
+	)
+
+
 def main (args):
 	model = MedusaModel.from_pretrained(
 		args.model,
@@ -30,79 +122,12 @@ def main (args):
 
 	input_ids = tokenizer.encode(prompt, return_tensors="pt").to(model.base_model.device)
 
-	output = ''
-	accepts = []
-
-	t0 = time.time()
-
 	if args.original_infer:
-		with torch.inference_mode():
-			input_len = input_ids.shape[1]
-
-			(
-				past_key_values,
-				past_key_values_data,
-				current_length_data,
-			) = initialize_past_key_values(model.base_model)
-			model.past_key_values = past_key_values
-			model.past_key_values_data = past_key_values_data
-			model.current_length_data = current_length_data
-
-			reset_medusa_mode(model)
-
-			accepts.append(0)
-
-			logits = model(
-				input_ids, past_key_values=model.past_key_values, output_orig=True, medusa_forward=False
-			).logits
-
-			t1 = time.time()
-
-			while True:
-				new_id = torch.argmax(logits[:, -1])[None, None]
-				new_id_value = new_id.item()
-				print(f'{new_id_value=},	{len(accepts)}	mem:{torch.cuda.memory_allocated(0):,}')
-
-				if new_id_value == model.tokenizer.eos_token_id or len(accepts) >= args.max_steps:
-					output = model.tokenizer.decode(input_ids[0, input_len:], skip_special_tokens=True, spaces_between_special_tokens=False, clean_up_tokenization_spaces=True)
-					break
-
-				input_ids = torch.cat([input_ids, new_id], dim=-1)
-
-				accepts.append(0)
-				logits = model(
-					new_id,
-					past_key_values=model.past_key_values,
-					output_orig=True,
-					medusa_forward=False,
-					position_ids=None,
-					output_attentions=False,
-					use_cache=False,
-				).logits
+		result = runWO(model, input_ids, max_steps=args.max_steps)
 	else:
-		gen = model.medusa_generate(
-			input_ids,
-			temperature=args.temperature,
-			max_steps=args.max_steps,
-		)
+		result = runMedusa(model, input_ids, max_steps=args.max_steps, temperature=args.temperature)
 
-		for batch in gen:
-			output = batch['text']
-			t1 = batch["t1"]
-			new_token = batch['new_token']
-			accept_length = batch['accept_length']
-			accepts.append(accept_length)
-
-			print(f'{accept_length}/{new_token},	mem:{torch.cuda.memory_allocated(0):,}')
-
-	t_end = time.time()
-	ttft = t1 - t0
-	tps = (np.sum(accepts) + len(accepts)) / (t_end - t1)
-
-	print(f'{output=}')
-	print(f'{np.mean(accepts)=}')
-	print(f'{ttft=}')
-	print(f'{tps=}')
+	print(f'{result=}')
 
 
 if __name__ == "__main__":
@@ -123,7 +148,7 @@ if __name__ == "__main__":
 	parser.add_argument(
 		"--conv-system-msg", type=str, default=None, help="Conversation system message."
 	)
-	parser.add_argument("--temperature", type=float, default=0.7)
+	parser.add_argument("--temperature", type=float, default=0)
 	parser.add_argument("--max-steps", type=int, default=512)
 	parser.add_argument("--no-history", action="store_true")
 	parser.add_argument(
