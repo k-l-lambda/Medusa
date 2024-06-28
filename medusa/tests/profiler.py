@@ -63,7 +63,7 @@ def main (args):
 				new_id_value = new_id.item()
 				print(f'{new_id_value=},	{len(accepts)}	mem:{torch.cuda.memory_allocated(0):,}')
 
-				if new_id_value == model.tokenizer.eos_token_id:
+				if new_id_value == model.tokenizer.eos_token_id or len(accepts) >= args.max_steps:
 					output = model.tokenizer.decode(input_ids[0, input_len:], skip_special_tokens=True, spaces_between_special_tokens=False, clean_up_tokenization_spaces=True)
 					break
 

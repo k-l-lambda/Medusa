@@ -176,7 +176,7 @@ class MedusaModelABC(nn.Module):
         self,
         input_ids=None,
         attention_mask=None,
-        labels=None,	# this is required!, transformer trainer will remove 'unused' data column from dataset
+        labels=None,	# this is required!, transformers trainer will remove 'unused' data column from dataset
         past_key_values=None,
         output_orig=False,
         position_ids=None,
