@@ -30,16 +30,18 @@ def runMedusa (model, input_ids, temperature, max_steps):
 		accept_length = batch['accept_length']
 		accepts.append(accept_length)
 
-		print(f'{accept_length}/{new_token},	mem:{torch.cuda.memory_allocated(0):,}')
+		mem=torch.cuda.memory_allocated(0)
+		print(f'{accept_length}/{new_token},	mem:{mem:,}')
 
 	t_end = time.time()
 
 	return dict(
 		output=output,
-		accepts=np.sum(accepts),
+		accepts=accepts,
 		ttft=t1 - t0,
 		duration=t_end - t1,
 		n_tokens=np.sum(accepts) + len(accepts),
+		mem=mem,
 	)
 
 
@@ -96,10 +98,10 @@ def runWO (model, input_ids, max_steps):
 
 	return dict(
 		output=output,
-		accepts=0,
 		ttft=t1 - t0,
 		duration=t_end - t1,
 		n_tokens=n_tokens,
+		mem=torch.cuda.memory_allocated(0),
 	)
 
 
@@ -116,18 +118,26 @@ def main (args):
 	tokenizer = model.get_tokenizer()
 	conv = get_conversation_template(args.model)
 
+	print('input:', args.inp)
 	conv.append_message(conv.roles[0], args.inp)
 	conv.append_message(conv.roles[1], None)
 	prompt = conv.get_prompt()
 
 	input_ids = tokenizer.encode(prompt, return_tensors="pt").to(model.base_model.device)
 
-	if args.original_infer:
-		result = runWO(model, input_ids, max_steps=args.max_steps)
-	else:
-		result = runMedusa(model, input_ids, max_steps=args.max_steps, temperature=args.temperature)
+	result_medusa = runMedusa(model, input_ids, max_steps=args.max_steps, temperature=args.temperature)
+	result_wo = runWO(model, input_ids, max_steps=result_medusa['n_tokens'])
 
-	print(f'{result=}')
+	#print(f'{result_medusa=}')
+	#print(f'{result_wo=}')
+
+	tps_medusa = result_medusa['n_tokens'] / result_medusa['duration']
+	tps_wo = result_wo['n_tokens'] / result_wo['duration']
+
+	print('ttft:', result_medusa['ttft'], ':', result_wo['ttft'])
+	print('tps:', tps_medusa / tps_wo, '=', tps_medusa, ':', tps_wo)
+	print('mem:', f'{result_medusa["mem"] - result_wo["mem"]:,}	= {result_medusa["mem"]:,} - {result_wo["mem"]:,}')
+	print('mean accept_length:', np.mean(result_medusa['accepts']))
 
 
 if __name__ == "__main__":
