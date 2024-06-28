@@ -17,26 +17,27 @@ def runMedusa (model, input_ids, temperature, max_steps):
 
 	t0 = time.time()
 
-	gen = model.medusa_generate(
-		input_ids,
-		temperature=temperature,
-		max_steps=max_steps,
-	)
+	with torch.inference_mode():
+		gen = model.medusa_generate(
+			input_ids,
+			temperature=temperature,
+			max_steps=max_steps,
+		)
 
-	for batch in gen:
-		output = batch['text']
-		t1 = batch["t1"]
-		new_token = batch['new_token']
-		accept_length = batch['accept_length']
-		accepts.append(accept_length)
+		for batch in gen:
+			output = batch['text']
+			t1 = batch["t1"]
+			new_token = batch['new_token']
+			accept_length = batch['accept_length']
+			accepts.append(accept_length)
 
-		mem=torch.cuda.memory_allocated(0)
-		print(f'{accept_length}/{new_token},	mem:{mem:,}')
+			mem=torch.cuda.memory_allocated(0)
+			print(f'{accept_length}/{new_token},	mem:{mem:,}')
 
 	t_end = time.time()
 
 	return dict(
-		output=output,
+		output=output + '\n',
 		accepts=accepts,
 		ttft=t1 - t0,
 		duration=t_end - t1,
@@ -97,7 +98,7 @@ def runWO (model, input_ids, max_steps):
 	t_end = time.time()
 
 	return dict(
-		output=output,
+		output=output + '\n',
 		ttft=t1 - t0,
 		duration=t_end - t1,
 		n_tokens=n_tokens,
@@ -116,23 +117,54 @@ def main (args):
 	model.eval()
 
 	tokenizer = model.get_tokenizer()
-	conv = get_conversation_template(args.model)
 
-	print('input:', args.inp)
-	conv.append_message(conv.roles[0], args.inp)
-	conv.append_message(conv.roles[1], None)
-	prompt = conv.get_prompt()
+	queries = open(args.query, 'r').read().split('\n')
+	queries = [q for q in queries if len(q) > 0]
 
-	input_ids = tokenizer.encode(prompt, return_tensors="pt").to(model.base_model.device)
+	result_medusa = dict(
+		output='',
+		accepts=[],
+		ttft=0,
+		duration=0,
+		n_tokens=0,
+		mem=0,
+	)
 
-	result_medusa = runMedusa(model, input_ids, max_steps=args.max_steps, temperature=args.temperature)
-	result_wo = runWO(model, input_ids, max_steps=result_medusa['n_tokens'])
+	result_wo = dict(
+		output='',
+		ttft=0,
+		duration=0,
+		n_tokens=0,
+		mem=0,
+	)
 
-	#print(f'{result_medusa=}')
-	#print(f'{result_wo=}')
+	for query in queries:
+		print('query:', query)
+		conv = get_conversation_template(args.model)
+
+		conv.append_message(conv.roles[0], query)
+		conv.append_message(conv.roles[1], None)
+		prompt = conv.get_prompt()
+
+		input_ids = tokenizer.encode(prompt, return_tensors="pt").to(model.base_model.device)
+
+		o_medusa = runMedusa(model, input_ids, max_steps=args.max_steps, temperature=args.temperature)
+		o_wo = runWO(model, input_ids, max_steps=o_medusa['n_tokens'])
+
+		for k in result_medusa.keys():
+			result_medusa[k] += o_medusa[k]
+		for k in result_wo.keys():
+			result_wo[k] += o_wo[k]
 
 	tps_medusa = result_medusa['n_tokens'] / result_medusa['duration']
 	tps_wo = result_wo['n_tokens'] / result_wo['duration']
+
+	print('------------------------')
+	print(result_medusa['output'])
+	print('------------------------')
+	print(result_wo['output'])
+	print('------------------------')
+	print('\n\n')
 
 	print('ttft:', result_medusa['ttft'], ':', result_wo['ttft'])
 	print('tps:', tps_medusa / tps_wo, '=', tps_medusa, ':', tps_wo)
@@ -144,7 +176,7 @@ if __name__ == "__main__":
 
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--model", type=str, required=True, help="Model name or path.")
-	parser.add_argument("--inp", type=str, default="Explain the concept of Dirac sea.", help="Prompt text input")
+	parser.add_argument("--query", type=str, default="./assets/eval_queries.txt", help="Prompt text input")
 	parser.add_argument("--original-infer", "-ori", action="store_true", help="Use original inference mode.")
 	parser.add_argument(
 		"--load-in-8bit", action="store_true", help="Use 8-bit quantization"
