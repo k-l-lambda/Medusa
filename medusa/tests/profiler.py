@@ -37,7 +37,7 @@ def runMedusa (model, input_ids, temperature, max_steps):
 	t_end = time.time()
 
 	return dict(
-		output=output + '\n',
+		output='> ' + output + '\n',
 		accepts=accepts,
 		ttft=t1 - t0,
 		duration=t_end - t1,
@@ -98,7 +98,7 @@ def runWO (model, input_ids, max_steps):
 	t_end = time.time()
 
 	return dict(
-		output=output + '\n',
+		output='> ' + output + '\n',
 		ttft=t1 - t0,
 		duration=t_end - t1,
 		n_tokens=n_tokens,
