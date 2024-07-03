@@ -16,7 +16,7 @@ save_batch_size = 100
 
 
 async def run(conv: Conversation, url: str):
-    payload = {"model":"/models/Meta-Llama-3-8B-Instruct/", "messages": conv.messages}
+    payload = {"model":"/models/Meta-Llama-3-8B-Instruct/", "messages": conv.messages, "temperature": 0}
     #print('payload:', payload)
     #print('request:', conv.messages)
     response = await client.post(url, json=payload)
