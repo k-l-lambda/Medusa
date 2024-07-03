@@ -205,7 +205,7 @@ class MedusaModelABC(nn.Module):
                 position_ids=position_ids,
                 **kwargs,
             )
-        with torch.inference_mode():
+        with torch.no_grad():
             # Pass input through the base model
             outputs = self.base_model.model(
                 input_ids=input_ids,
