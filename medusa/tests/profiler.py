@@ -4,6 +4,8 @@ import torch
 from fastchat.model.model_adapter import get_conversation_template
 import numpy as np
 import time
+import json
+from tqdm import tqdm
 
 from medusa.model.medusa_model import MedusaModel
 from medusa.model.utils import reset_medusa_mode
@@ -32,12 +34,13 @@ def runMedusa (model, input_ids, temperature, max_steps):
 			accepts.append(accept_length)
 
 			mem=torch.cuda.memory_allocated(0)
-			print(f'{accept_length}/{new_token},	mem:{mem:,}')
+			#print(f'{accept_length}/{new_token},	mem:{mem:,}')
 
 	t_end = time.time()
 
 	return dict(
-		output='> ' + output + '\n',
+		#output='> ' + output + '\n',
+		output=output,
 		accepts=accepts,
 		ttft=t1 - t0,
 		duration=t_end - t1,
@@ -76,7 +79,7 @@ def runWO (model, input_ids, max_steps):
 		while True:
 			new_id = torch.argmax(logits[:, -1])[None, None]
 			new_id_value = new_id.item()
-			print(f'{new_id_value=},	{n_tokens}	mem:{torch.cuda.memory_allocated(0):,}')
+			#print(f'{new_id_value=},	{n_tokens}	mem:{torch.cuda.memory_allocated(0):,}')
 
 			if new_id_value == model.tokenizer.eos_token_id or n_tokens >= max_steps:
 				output = model.tokenizer.decode(input_ids[0, input_len:], skip_special_tokens=True, spaces_between_special_tokens=False, clean_up_tokenization_spaces=True)
@@ -98,7 +101,8 @@ def runWO (model, input_ids, max_steps):
 	t_end = time.time()
 
 	return dict(
-		output='> ' + output + '\n',
+		#output='> ' + output + '\n',
+		output=output,
 		ttft=t1 - t0,
 		duration=t_end - t1,
 		n_tokens=n_tokens,
@@ -121,6 +125,8 @@ def main (args):
 	queries = open(args.query, 'r').read().split('\n')
 	queries = [q for q in queries if len(q) > 0]
 
+	entries = []
+
 	result_medusa = dict(
 		output='',
 		accepts=[],
@@ -138,8 +144,8 @@ def main (args):
 		mem=0,
 	)
 
-	for query in queries:
-		print('query:', query)
+	for query in tqdm(queries):
+		#print('query:', query)
 		conv = get_conversation_template(args.model)
 
 		conv.append_message(conv.roles[0], query)
@@ -149,12 +155,26 @@ def main (args):
 		input_ids = tokenizer.encode(prompt, return_tensors="pt").to(model.base_model.device)
 
 		o_medusa = runMedusa(model, input_ids, max_steps=args.max_steps, temperature=args.temperature)
-		o_wo = runWO(model, input_ids, max_steps=o_medusa['n_tokens'])
+		#o_wo = runWO(model, input_ids, max_steps=o_medusa['n_tokens'])
 
-		for k in result_medusa.keys():
-			result_medusa[k] += o_medusa[k]
-		for k in result_wo.keys():
-			result_wo[k] += o_wo[k]
+		entries.append(dict(
+			content=o_medusa['output'],
+		))
+
+		#for k in result_medusa.keys():
+		#	result_medusa[k] += o_medusa[k]
+		#for k in result_wo.keys():
+		#	result_wo[k] += o_wo[k]
+
+		if len(entries) % 100 == 0:
+			with open('entries.txt', 'w') as f:
+				json.dump(entries, f, indent=2)
+
+	# dump entries
+	with open('entries.txt', 'w') as f:
+		json.dump(entries, f, indent=2)
+	print('Done')
+	return
 
 	tps_medusa = result_medusa['n_tokens'] / result_medusa['duration']
 	tps_wo = result_wo['n_tokens'] / result_wo['duration']
