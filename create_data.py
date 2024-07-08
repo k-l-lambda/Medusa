@@ -54,6 +54,13 @@ async def recreate_conversation(conversation, sem, url):
             pass
         return conv.messages
 
+
+def load_conversation_json(filename):
+    with open(filename, "r") as f:
+        input_data = json.loads(f.read())
+    return [fix_source(source["conversations"]) for source in input_data]
+
+
 @app.command()
 def main(
     *,
@@ -64,9 +71,7 @@ def main(
 ):
     sem = asyncio.Semaphore(concurrency)
     async def _main():
-        with open(input_filename, "r") as f:
-            input_data = json.loads(f.read())
-        conversations = [fix_source(source["conversations"]) for source in input_data]
+        conversations = load_conversation_json(input_filename)
 
         backup_output_filename = output_filename + ".bak"
 
