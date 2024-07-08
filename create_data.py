@@ -6,6 +6,7 @@ import httpx
 import tqdm
 import asyncio
 import os
+import pandas as pd
 
 app = typer.Typer()
 
@@ -30,7 +31,7 @@ async def run(conv: Conversation, url: str):
 
 
 def fix_source(source):
-    if source and source[0]["from"] == "gpt":
+    if source and (source[0]["from"] in ["gpt", "assistant"]):
         # Skip if GPT is first to talk
         source = source[1:]
     new_source = []
@@ -61,6 +62,11 @@ def load_conversation_json(filename):
     return [fix_source(source["conversations"]) for source in input_data]
 
 
+def load_conversation_parquet (filename):
+    df = pd.read_parquet(filename)
+    return df["conversation"]
+
+
 @app.command()
 def main(
     *,
@@ -71,7 +77,10 @@ def main(
 ):
     sem = asyncio.Semaphore(concurrency)
     async def _main():
-        conversations = load_conversation_json(input_filename)
+        if input_filename.endswith(".parquet"):
+            conversations = load_conversation_parquet(input_filename)
+        elif input_filename.endswith(".json"):
+            conversations = load_conversation_json(input_filename)
 
         backup_output_filename = output_filename + ".bak"
 

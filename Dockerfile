@@ -17,7 +17,7 @@ COPY . .
 
 RUN mkdir /work
 RUN cd /work && git clone https://github.com/lm-sys/FastChat.git
-RUN cd /work/FastChat && pip3 install -e. ".[model_worker,webui]"
+RUN cd /work/FastChat && pip3 install -e ".[model_worker,webui]"
 
 # Install Medusa in editable mode
 RUN pip install -e '.[train]'
