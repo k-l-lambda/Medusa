@@ -240,6 +240,60 @@ class MedusaModelABC(nn.Module):
         warnings.warn('Please specify medusa choice configuration!')
         return mc_sim_7b_63
 
+    def plain_generate(
+        self,
+        input_ids,
+        attention_mask=None,
+        temperature=0.0,
+        max_steps=512,
+        medusa_choices=None,
+        posterior_threshold=0.09,
+        posterior_alpha=0.3,
+        top_p=0.8, 
+        sampling = 'typical', 
+        fast = True
+    ):
+        (
+            past_key_values,
+            past_key_values_data,
+            current_length_data,
+        ) = initialize_past_key_values(self.base_model)
+        self.past_key_values = past_key_values
+        self.past_key_values_data = past_key_values_data
+        self.current_length_data = current_length_data
+
+        reset_medusa_mode(self)
+
+        input_len = input_ids.shape[1]
+        logits = self.forward(
+            input_ids, past_key_values=self.past_key_values, output_orig=True, medusa_forward=False
+        ).logits
+
+        while True:
+            # TODO: random sampling by temperature
+            new_id = torch.argmax(logits[:, -1])[None, None]
+            new_id_value = new_id.item()
+
+            text = self.tokenizer.decode(input_ids[0, input_len:], skip_special_tokens=True, spaces_between_special_tokens=False, clean_up_tokenization_spaces=True)
+            yield {
+                'text': text,
+            }
+
+            if new_id_value == self.tokenizer.eos_token_id:
+                break
+
+            input_ids = torch.cat([input_ids, new_id], dim=-1)
+
+            logits = self.forward(
+                new_id,
+                past_key_values=self.past_key_values,
+                output_orig=True,
+                medusa_forward=False,
+                position_ids=None,
+                output_attentions=False,
+                use_cache=False,
+            ).logits
+
     def medusa_generate(
         self,
         input_ids,
