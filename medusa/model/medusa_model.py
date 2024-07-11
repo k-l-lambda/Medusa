@@ -264,35 +264,36 @@ class MedusaModelABC(nn.Module):
 
         reset_medusa_mode(self)
 
-        input_len = input_ids.shape[1]
-        logits = self.forward(
-            input_ids, past_key_values=self.past_key_values, output_orig=True, medusa_forward=False
-        ).logits
-
-        while True:
-            # TODO: random sampling by temperature
-            new_id = torch.argmax(logits[:, -1])[None, None]
-            new_id_value = new_id.item()
-
-            text = self.tokenizer.decode(input_ids[0, input_len:], skip_special_tokens=True, spaces_between_special_tokens=False, clean_up_tokenization_spaces=True)
-            yield {
-                'text': text,
-            }
-
-            if new_id_value == self.tokenizer.eos_token_id:
-                break
-
-            input_ids = torch.cat([input_ids, new_id], dim=-1)
-
+        with torch.inference_mode():
+            input_len = input_ids.shape[1]
             logits = self.forward(
-                new_id,
-                past_key_values=self.past_key_values,
-                output_orig=True,
-                medusa_forward=False,
-                position_ids=None,
-                output_attentions=False,
-                use_cache=False,
+                input_ids, past_key_values=self.past_key_values, output_orig=True, medusa_forward=False
             ).logits
+
+            while True:
+                # TODO: random sampling by temperature
+                new_id = torch.argmax(logits[:, -1])[None, None]
+                new_id_value = new_id.item()
+
+                text = self.tokenizer.decode(input_ids[0, input_len:], skip_special_tokens=True, spaces_between_special_tokens=False, clean_up_tokenization_spaces=True)
+                yield {
+                    'text': text,
+                }
+
+                if new_id_value == self.tokenizer.eos_token_id:
+                    break
+
+                input_ids = torch.cat([input_ids, new_id], dim=-1)
+
+                logits = self.forward(
+                    new_id,
+                    past_key_values=self.past_key_values,
+                    output_orig=True,
+                    medusa_forward=False,
+                    position_ids=None,
+                    output_attentions=False,
+                    use_cache=False,
+                ).logits
 
     def medusa_generate(
         self,
