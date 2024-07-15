@@ -85,6 +85,11 @@ def main(
         backup_output_filename = output_filename + ".bak"
 
         recreated_conversations = []
+        if os.path.exists(output_filename):
+            recreated_conversations = json.load(open(output_filename, "r"))
+            conversations = conversations[len(recreated_conversations):]
+            print(f'{len(recreated_conversations)} conversations loaded.')
+
         for i in tqdm.tqdm(range(0, len(conversations), save_batch_size), position=1):
             batch_conversations = conversations[i:i+save_batch_size]
 
