@@ -52,7 +52,7 @@ async def recreate_conversation(conversation, sem, url):
                 await run(conv, url)
         except Exception as e:
             print(e)
-            pass
+            exit(-1)
         return conv.messages
 
 
