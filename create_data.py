@@ -55,7 +55,7 @@ async def recreate_conversation(conversation, sem, url):
                 await run(conv, url)
 
                 # remove user messages after last assistant message
-                while conv.messages[-1]["role"] != "assistant":
+                while len(conv.messages) > 0 and conv.messages[-1]["role"] != "assistant":
                     conv.messages.pop()
         except Exception as e:
             print(e)
