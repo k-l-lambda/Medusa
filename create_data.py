@@ -22,6 +22,9 @@ async def run(conv: Conversation, url: str):
     #print('request:', conv.messages)
     response = await client.post(url, json=payload)
     content = response.json()
+    if not "choices" in content:
+        #print("no choices:", content.get("error", None))
+        return
     message = content["choices"][0]["message"]
     message.pop("tool_calls", None)
     #print('reply:', message)
@@ -50,6 +53,10 @@ async def recreate_conversation(conversation, sem, url):
                 assert message["role"] == "user"
                 conv.add_message(message)
                 await run(conv, url)
+
+                # remove user messages after last assistant message
+                while conv.messages[-1]["role"] != "assistant":
+                    conv.messages.pop()
         except Exception as e:
             print(e)
             exit(-1)
