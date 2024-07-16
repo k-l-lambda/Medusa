@@ -21,7 +21,11 @@ async def run(conv: Conversation, url: str):
     #print('payload:', payload)
     #print('request:', conv.messages)
     response = await client.post(url, json=payload)
-    content = response.json()
+    try:
+        content = response.json()
+    except json.decoder.JSONDecodeError:
+        print('failed to decode response:', response.text)
+        return
     if not "choices" in content:
         #print("no choices:", content.get("error", None))
         return
