@@ -309,7 +309,8 @@ class MedusaModelABC(nn.Module):
         posterior_alpha=0.3,
         top_p=0.8, 
         sampling = 'typical', 
-        fast = True
+        fast = True,
+        need_text=False,
     ):
         """
         Args:
@@ -427,7 +428,8 @@ class MedusaModelABC(nn.Module):
                     skip_special_tokens=True,
                     spaces_between_special_tokens=False,
                     clean_up_tokenization_spaces=True,
-                ),
+                ) if need_text else None,
+                "output_ids": input_ids[0, input_len:],
                 "new_token": new_token.cpu().item(),
                 "accept_length": accept_length.cpu().item(),
                 "t1": t1,

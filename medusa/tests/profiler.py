@@ -22,6 +22,7 @@ def runMedusa (model, input_ids, temperature, max_steps):
 			input_ids,
 			temperature=temperature,
 			max_steps=max_steps,
+			need_text=True,
 		)
 
 		for batch in gen:
