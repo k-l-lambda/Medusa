@@ -15,7 +15,23 @@ from medusa.model.kv_cache import initialize_past_key_values
 
 
 
+def reorg_answer_file (answer_file):
+	"""Sort by question id and de-duplication"""
+	answers = {}
+	with open(answer_file, "r") as fin:
+		for l in fin:
+			qid = json.loads(l)["question_id"]
+			answers[qid] = l
+
+	qids = sorted(list(answers.keys()))
+	with open(answer_file, "w") as fout:
+		for qid in qids:
+			fout.write(answers[qid])
+
+
 def runMedusa (model, input_ids, temperature, max_tokens):
+	eot = model.tokenizer.convert_tokens_to_ids("<|eot_id|>")
+
 	torch.cuda.synchronize()
 	t0 = time.time()
 
@@ -33,6 +49,8 @@ def runMedusa (model, input_ids, temperature, max_tokens):
 
 			n_step += 1
 
+			if eot in output_ids.tolist():
+				break
 			if output_ids.shape[0] >= max_tokens:
 				break
 
@@ -64,6 +82,7 @@ def main (args):
 	model.eval()
 
 	tokenizer = model.get_tokenizer()
+	#print(f'{tokenizer.eos_token_id=}')
 
 	questions = load_questions(args.question, args.question_begin, args.question_end)
 
@@ -85,13 +104,23 @@ def main (args):
 		new_tokens = []
 		wall_time = []
 		for qs in question['turns']:
-			conv = get_conversation_template(args.model)
+			#conv = get_conversation_template(args.model)
+			#conv.append_message(conv.roles[0], qs)
+			#conv.append_message(conv.roles[1], None)
+			#prompt = conv.get_prompt()
+			#input_ids = tokenizer.encode(prompt, return_tensors="pt").to(model.base_model.device)
 
-			conv.append_message(conv.roles[0], qs)
-			conv.append_message(conv.roles[1], None)
-			prompt = conv.get_prompt()
-
-			input_ids = tokenizer.encode(prompt, return_tensors="pt").to(model.base_model.device)
+			messages = [{
+				"role": "user",
+				"content": qs,
+			}]
+			prompt = tokenizer.apply_chat_template(
+				messages,
+				tokenize=False,
+				add_generation_prompt=True,
+			)
+			#print('prompt:', prompt)
+			input_ids = torch.as_tensor(tokenizer([prompt], add_special_tokens=False).input_ids).to(model.base_model.device)
 
 			o_medusa = runMedusa(model, input_ids, temperature=args.temperature, max_tokens=args.max_new_tokens)
 
@@ -111,6 +140,8 @@ def main (args):
 				"tstamp": time.time(),
 			}
 			fout.write(json.dumps(ans_json) + "\n")
+
+	reorg_answer_file(args.answer_file)
 
 
 if __name__ == "__main__":
