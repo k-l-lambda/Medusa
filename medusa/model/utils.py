@@ -1,5 +1,6 @@
 import torch
 import torch.nn.functional as F
+import time
 
 TOPK=10 # topk for sparse tree (10 is a placeholder and it is sufficient)
 
@@ -125,7 +126,7 @@ def generate_medusa_buffers(medusa_choices, device="cuda"):
     return medusa_buffers
 
 
-def initialize_medusa(input_ids, model, medusa_attn_mask, past_key_values):
+def initialize_medusa(input_ids, model, medusa_attn_mask, past_key_values, profiler=None):
     """
     Initializes the Medusa structure for a given model.
 
@@ -143,9 +144,18 @@ def initialize_medusa(input_ids, model, medusa_attn_mask, past_key_values):
     - medusa_logits (torch.Tensor): Logits from the Medusa heads.
     - logits (torch.Tensor): Original logits from the base model.
     """
+    torch.cuda.synchronize()
+    t0 = time.time()
+
     medusa_logits, outputs, logits = model(
         input_ids, past_key_values=past_key_values, output_orig=True, medusa_forward=True
     )
+
+    if profiler is not None:
+        torch.cuda.synchronize()
+        profiler['base'] = profiler.get('base', 0)
+        profiler['base'] += time.time() - t0
+
     model.base_model.model.medusa_mask = medusa_attn_mask
     return medusa_logits, logits
 
@@ -313,6 +323,7 @@ def tree_decoding(
     medusa_position_ids,
     input_ids,
     retrieve_indices,
+    profiler=None,
 ):
     """
     Decode the tree candidates using the provided model and reorganize the logits.
@@ -332,6 +343,9 @@ def tree_decoding(
     # Compute new position IDs by adding the Medusa position IDs to the length of the input sequence.
     position_ids = medusa_position_ids + input_ids.shape[1]
 
+    torch.cuda.synchronize()
+    t0 = time.time()
+
     # Use the model to decode the tree candidates. 
     # The model is expected to return logits for the Medusa structure, original logits, and possibly other outputs.
     tree_medusa_logits, outputs, tree_logits = model(
@@ -341,6 +355,11 @@ def tree_decoding(
         position_ids=position_ids,
         medusa_forward=True,
     )
+
+    if profiler is not None:
+        torch.cuda.synchronize()
+        profiler['base'] = profiler.get('base', 0)
+        profiler['base'] += time.time() - t0
     
     # Reorder the obtained logits based on the retrieve_indices to ensure consistency with some reference ordering.
     logits = tree_logits[0, retrieve_indices]

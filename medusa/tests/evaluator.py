@@ -29,23 +29,26 @@ def reorg_answer_file (answer_file):
 			fout.write(answers[qid])
 
 
-def runMedusa (model, input_ids, temperature, max_tokens):
+def runMedusa (model, input_ids, temperature, max_tokens, profiler=None):
 	eot = model.tokenizer.convert_tokens_to_ids("<|eot_id|>")
 
 	torch.cuda.synchronize()
 	t0 = time.time()
+	taus = []
 
 	with torch.inference_mode():
 		gen = model.medusa_generate(
 			input_ids,
 			temperature=temperature,
 			max_steps=max_tokens,
+			profiler=profiler,
 		)
 
 		output_ids = None
 		n_step = 0
 		for batch in gen:
 			output_ids = batch["output_ids"]
+			taus.append(batch["accept_length"])
 
 			n_step += 1
 
@@ -69,6 +72,7 @@ def runMedusa (model, input_ids, temperature, max_tokens):
 		duration=t_end - t0,
 		n_tokens=output_ids.shape[0],
 		n_step=n_step,
+		taus=taus,
 	)
 
 
@@ -103,6 +107,8 @@ def main (args):
 		idxs = []
 		new_tokens = []
 		wall_time = []
+		profiler = {}
+		taus = []
 		for qs in question['turns']:
 			#conv = get_conversation_template(args.model)
 			#conv.append_message(conv.roles[0], qs)
@@ -122,14 +128,25 @@ def main (args):
 			#print('prompt:', prompt)
 			input_ids = torch.as_tensor(tokenizer([prompt], add_special_tokens=False).input_ids).to(model.base_model.device)
 
-			o_medusa = runMedusa(model, input_ids, temperature=args.temperature, max_tokens=args.max_new_tokens)
+			o_medusa = runMedusa(model, input_ids, temperature=args.temperature, max_tokens=args.max_new_tokens, profiler=profiler)
 
 			turns.append(o_medusa['output'])
 			idxs.append(o_medusa['n_step'])
 			new_tokens.append(o_medusa['n_tokens'])
 			wall_time.append(o_medusa['duration'])
+			taus += o_medusa['taus']
 
-		choices = [{"index": 0, "turns": turns, "idxs": idxs, "new_tokens": new_tokens, "wall_time": wall_time}]
+		choices = [{
+			"index": 0,
+			"turns": turns,
+			"idxs": idxs,
+			"new_tokens": new_tokens,
+			"wall_time": wall_time,
+			"base_time": profiler["base"],
+			"ealayer_time": 0,
+			"head_time": 0,
+			"taus": taus,
+		}]
 		os.makedirs(os.path.dirname(args.answer_file), exist_ok=True)
 		with open(os.path.expanduser(args.answer_file), "a") as fout:
 			ans_json = {

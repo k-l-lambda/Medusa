@@ -311,6 +311,7 @@ class MedusaModelABC(nn.Module):
         sampling = 'typical', 
         fast = True,
         need_text=False,
+        profiler=None,
     ):
         """
         Args:
@@ -369,7 +370,7 @@ class MedusaModelABC(nn.Module):
         reset_medusa_mode(self)
         # Initialize tree attention mask and process prefill tokens
         medusa_logits, logits = initialize_medusa(
-            input_ids, self, medusa_buffers["medusa_attn_mask"], past_key_values
+            input_ids, self, medusa_buffers["medusa_attn_mask"], past_key_values, profiler=profiler,
         )
 
         new_token = 0
@@ -400,6 +401,7 @@ class MedusaModelABC(nn.Module):
                 medusa_buffers["medusa_position_ids"],
                 input_ids,
                 medusa_buffers["retrieve_indices"],
+                profiler=profiler,
             )
 
             # Evaluate the posterior of the candidates to select the accepted candidate prefix
