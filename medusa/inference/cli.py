@@ -57,6 +57,8 @@ def main(args):
                 chatio.print_output(message[1])
 
         while True:
+            print('==============================================')
+            print("\n" * 60, "\033[60A", end="")
             if not conv:
                 conv = new_chat()
 
@@ -158,13 +160,15 @@ def main(args):
                 input_ids = tokenizer.encode(prompt, return_tensors="pt").to(
                     model.base_model.device
                 )
-                outputs = chatio.stream_output(
-                    model.medusa_generate(
-                        input_ids,
-                        temperature=args.temperature,
-                        max_steps=args.max_steps,
+                with torch.inference_mode():
+                    outputs = chatio.stream_output(
+                        model.medusa_generate(
+                            input_ids,
+                            temperature=args.temperature,
+                            max_steps=args.max_steps,
+                            need_text=True,
+                        )
                     )
-                )
                 conv.update_last_message(outputs.strip())
 
             except KeyboardInterrupt:
